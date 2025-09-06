@@ -1,6 +1,10 @@
+[Русская версия](README.ru.md)
+
 # Assembly Calculator
 
 A cross-platform console calculator written from scratch in x86-64 assembly using MASM/UASM syntax. This project demonstrates a low-level implementation of classic expression parsing and evaluation algorithms, as well as the construction of a modular architecture in assembly.
+
+![Image](untitled.png)
 
 ## Features
 
