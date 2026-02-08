@@ -56,15 +56,11 @@ print_tokens PROC
     mov     r12, rdi
     mov     r13, rsi
     xor     r14, r14
+    mov     rbx, r12
 
 pt_loop:
     cmp     r14, r13
     jge     pt_end
-
-    mov     rax, r14
-    imul    rax, SIZEOF Token
-    add     rax, r12
-    mov     rbx, rax
 
     mov     rax, [rbx].Token.tok_type
 
@@ -119,6 +115,7 @@ pt_do_print_zero:
 pt_do_print:
     call    printf
 
+    add     rbx, SIZEOF Token
     inc     r14
     jmp     pt_loop
 
