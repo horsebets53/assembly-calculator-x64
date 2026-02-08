@@ -222,11 +222,8 @@ eval_unary_minus:
     
     ; Negate by XORing the sign bit
     mov     rax, 8000000000000000h      ; Sign bit mask
-    push    rax
-    movsd   [rsp], xmm0
-    xor     [rsp], rax
-    movsd   xmm0, [rsp]
-    add     rsp, 8
+    movq    xmm1, rax
+    xorpd   xmm0, xmm1
     
     call    stack_push
     test    rax, rax
