@@ -37,7 +37,7 @@ PUBLIC TOKEN_UNARY_MINUS, TOKEN_LPAREN, TOKEN_RPAREN, MAX_TOKENS
     TOKEN_UNARY_MINUS   EQU 6
     TOKEN_LPAREN        EQU 7
     TOKEN_RPAREN        EQU 8
-    
+
     MAX_TOKENS          EQU 64
 
 .DATA?
@@ -51,16 +51,16 @@ print_tokens PROC
     push    rbx
     push    r12
     push    r13
-    push    r14
 
     mov     r12, rdi
     mov     r13, rsi
-    xor     r14, r14
+    imul    r13, SIZEOF Token
+    add     r13, r12    ; end pointer
     mov     rbx, r12
 
 pt_loop:
-    cmp     r14, r13
-    jge     pt_end
+    cmp     rbx, r13
+    jae     pt_end
 
     mov     rax, [rbx].Token.tok_type
 
@@ -116,11 +116,9 @@ pt_do_print:
     call    printf
 
     add     rbx, SIZEOF Token
-    inc     r14
     jmp     pt_loop
 
 pt_end:
-    pop     r14
     pop     r13
     pop     r12
     pop     rbx
@@ -136,7 +134,7 @@ tokenize PROC
     push    r13
     push    r14
     push    r15
-    
+
     mov     r12, rdi
     mov     r13, rsi
     xor     rax, rax
@@ -178,7 +176,7 @@ tok_not_a_digit:
     je      tok_is_rparen
     cmp     r15b, '-'
     je      tok_is_minus
-    
+
     lea     rdi, error_str_ptr
     mov     rdi, [rdi]
     mov     rsi, r15
@@ -201,7 +199,7 @@ tok_parse_number:
 
     mov     [r13].Token.tok_type, TOKEN_NUMBER
     movsd   [r13].Token.tok_value, xmm0
-    
+
     inc     rax
     add     r13, SIZEOF Token
     mov     r14, 1
