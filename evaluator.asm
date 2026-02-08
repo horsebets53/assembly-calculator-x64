@@ -67,10 +67,8 @@ stack_pop PROC
     ; Pop value
     dec     qword ptr [operand_stack_pointer]
     mov     rax, [operand_stack_pointer]
-    imul    rax, 8
     lea     rdx, operand_stack
-    add     rdx, rax
-    movsd   xmm0, [rdx]
+    movsd   xmm0, [rdx + rax*8]
     
     mov     rax, 1
     ret
