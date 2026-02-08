@@ -41,10 +41,8 @@ stack_push PROC
     jge     sp_overflow
     
     ; Push value
-    imul    rax, 8                      ; REAL8 = 8 bytes
     lea     rdx, operand_stack
-    add     rdx, rax
-    movsd   [rdx], xmm0
+    movsd   [rdx + rax*8], xmm0         ; REAL8 = 8 bytes
     
     inc     qword ptr [operand_stack_pointer]
     mov     rax, 1
