@@ -99,16 +99,14 @@ evaluate_rpn PROC
     mov     r13, rsi                    ; r13 = token count
     xor     r14, r14                    ; r14 = current index
     mov     qword ptr [operand_stack_pointer], 0
+    mov     rbx, r12                    ; rbx = current token pointer
     
 eval_loop:
     cmp     r14, r13
     jge     eval_finish
     
     ; Get current token
-    mov     rax, r14
-    imul    rax, SIZEOF Token
-    add     rax, r12
-    mov     rbx, rax                    ; rbx = current token pointer
+    ; rbx is updated at end of loop (strength reduction)
     
     mov     rax, [rbx].Token.tok_type
     
@@ -234,6 +232,7 @@ eval_unary_minus:
     jmp     eval_next
 
 eval_next:
+    add     rbx, SIZEOF Token
     inc     r14
     jmp     eval_loop
 

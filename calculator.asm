@@ -237,16 +237,14 @@ parse_to_rpn PROC
     xor     r14, r14                    ; r14 = input index
     xor     r15, r15                    ; r15 = output index
     mov     qword ptr [op_stack_top], 0
+    mov     rbx, r12                    ; rbx = current token pointer
     
 parse_loop:
     cmp     r14, r13
     jge     parse_flush_stack
     
     ; Get current token pointer
-    mov     rax, r14
-    imul    rax, SIZEOF Token
-    add     rax, r12
-    mov     rbx, rax                    ; rbx = current token pointer
+    ; rbx is updated at end of loop (strength reduction)
     
     ; Get token type
     mov     rax, [rbx].Token.tok_type
@@ -339,6 +337,7 @@ operator_push:
     call    op_stack_push
 
 parse_next:
+    add     rbx, SIZEOF Token
     inc     r14
     jmp     parse_loop
 
