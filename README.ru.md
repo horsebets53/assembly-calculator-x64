@@ -16,7 +16,7 @@
 - **Числа с плавающей запятой:** Все вычисления производятся с 64-битными числами (`double`) с использованием SSE2 инструкций.
 - **Обработка деления на ноль:** Возвращает `inf` (бесконечность) в соответствии со стандартом IEEE 754.
 - **Сообщения об ошибках:** Недопустимые символы, некорректные числа, несбалансированные скобки, недостающие операнды и слишком длинные выражения приводят к понятной ошибке, а не к молчаливому неверному результату.
-- **Кроссплатформенность:** Код компилируется под Linux и может быть легко адаптирован для Windows благодаря использованию стандартной библиотеки C (libc/MSVCRT).
+- **Кроссплатформенность:** Сборка под Linux (ELF64/libc) и Windows x64 (PE/COFF, MSYS2 UCRT64 GCC), без WSL.
 
 ## Архитектура
 
@@ -27,8 +27,11 @@
 3.  **`evaluator.asm` (Вычислитель):** Выполняет вычисление выражения, представленного в ОПН, используя стековый калькулятор.
 4.  **`calculator.asm` (Главный модуль):** Управляет всем процессом: получает ввод пользователя, вызывает модули по очереди и выводит финальный результат.
 5.  **`common.inc`:** Общий заголовочный файл с определением структуры `Token`.
+6.  **`runtime.inc` / `windows.asm`:** Выбор вызовов CRT и адаптер Windows x64/UCRT. Ядро использует внутреннее соглашение о регистрах в стиле SysV на обеих платформах; его процедуры не являются Windows C API. Адаптер обрабатывает вход в `main`, сохранение регистров, shadow space, передачу дробных аргументов в `printf` и стандартные потоки UCRT.
 
 ## Сборка и запуск
+
+### Linux
 
 **Требования:**
 - Ассемблер `UASM` (версия 2.57+)
@@ -67,14 +70,81 @@ gcc -no-pie -z noexecstack calculator.o lexer.o evaluator.o -o calculator -lm
 ./calculator
 ```
 
+### Windows x64 (без WSL)
+
+Нужны:
+- **UASM x64 2.57+** (`uasm.exe`), доступен в [репозитории UASM](https://github.com/Terraspace/UASM).
+- **MSYS2 UCRT64 GCC**, обычно `C:\msys64\ucrt64\bin\gcc.exe`.
+  Если он ещё не установлен, в терминале **MSYS2 UCRT64** выполните:
+  ```bash
+  pacman -S --needed mingw-w64-ucrt-x86_64-gcc
+  ```
+
+Откройте **командную строку (`cmd.exe`)** в каталоге проекта:
+
+```bat
+set "UASM=C:\Tools\UASM\uasm.exe"
+build.bat
+calculator.exe
+```
+
+Замените путь к UASM на свой. Если `uasm.exe` уже доступен через `PATH`,
+команда `set` не нужна. По умолчанию скрипт использует
+`C:\msys64\ucrt64\bin\gcc.exe`; другой путь можно задать так:
+
+```bat
+set "GCC=D:\msys64\ucrt64\bin\gcc.exe"
+build.bat
+```
+
+Нужен именно **UCRT64**, не MSYS `/usr/bin/gcc`, не 32-битный MinGW и не GCC
+с устаревшим MSVCRT. Для очистки Windows-артефактов: `build.bat clean`.
+В PowerShell используйте `$env:UASM = 'C:\Tools\UASM\uasm.exe'` и `.\build.bat`.
+
+Эквивалентная ручная сборка в `cmd.exe`, если оба инструмента доступны через `PATH`:
+
+```bat
+uasm -win64 -D__WINDOWS__ -Folexer.obj lexer.asm
+uasm -win64 -D__WINDOWS__ -Foevaluator.obj evaluator.asm
+uasm -win64 -D__WINDOWS__ -Focalculator.obj calculator.asm
+uasm -win64 -D__WINDOWS__ -Fowindows.obj windows.asm
+gcc calculator.obj lexer.obj evaluator.obj windows.obj -Wl,--nxcompat,--dynamicbase -o calculator.exe
+```
+
+Флаг `-D__WINDOWS__` нужен во **всех** командах ассемблирования Windows-версии,
+а `windows.obj` — при линковке. Одной замены `-elf64` на `-win64` недостаточно.
+
 **Ограничения:** выражение может содержать не более 64 токенов, строка ввода — не более 254 символов.
 
 ## Тестирование
 
-Набор регрессионных тестов запускает собранный бинарный файл и проверяет как результаты, так и сообщения об ошибках:
+Python 3 нужен **только для тестов**, не для сборки или запуска калькулятора.
+Общий набор из 49 тестов проверяет арифметику, неверный ввод, восстановление
+после ошибок, ограничения числа токенов и длины строки, CRLF и EOF.
+Ненулевой код возврата, вывод в stderr и таймаут считаются ошибками.
 
 ```bash
+# Linux (оболочка соберёт стандартный бинарный файл, если его нет)
 ./tests/test_calculator.sh
+# Или после сборки:
+python3 tests/test_calculator.py ./calculator
 ```
+
+```bat
+rem Windows, после build.bat
+py tests\test_calculator.py .\calculator.exe
+```
+
+Для настроенной 64-битной установки Wine:
+
+```bash
+WINEDEBUG=-all python3 tests/test_calculator.py ./calculator.exe --runner wine64
+```
+
+**Проверено:** Linux/UASM+GCC и Windows PE/UCRT, слинкованный через
+`zig cc -target x86_64-windows-gnu` и запущенный в Wine 8.0, прошли все 49 тестов
+каждый. Это не нативная проверка Windows/MSYS2 GCC: для проверки именно вашей
+сборки выполните команду тестирования на Windows. GitHub Actions не требуется.
+
 ---
 **Лицензия:** MIT

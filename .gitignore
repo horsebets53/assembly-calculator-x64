@@ -4,3 +4,7 @@
 *.lst
 *.map
 calculator
+calculator.exe
+*.err
+__pycache__/
+*.pdb

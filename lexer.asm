@@ -6,6 +6,7 @@
 option casemap:none
 
 INCLUDE common.inc
+INCLUDE runtime.inc
 
 ; --- Imports needed by this module ---
 EXTERN printf:PROC
@@ -113,7 +114,7 @@ pt_print_rparen:
 pt_do_print_zero:
     xor     eax, eax
 pt_do_print:
-    call    printf
+    CRT_CALL printf
 
     add     rbx, SIZEOF Token
     inc     r14
@@ -183,7 +184,7 @@ tok_not_a_digit:
     mov     rdi, [rdi]
     mov     rsi, r15
     xor     rax, rax
-    call    printf
+    CRT_CALL printf
     mov     rax, -1
     jmp     tok_end
 
@@ -194,7 +195,7 @@ tok_parse_number:
 
     mov     rdi, r12
     lea     rsi, [rsp+16]
-    call    strtod
+    CRT_CALL strtod
 
     mov     r12, [rsp+16]               ; endptr: first character after the number
     mov     rdx, [rsp+8]
@@ -223,7 +224,7 @@ tok_bad_number:
     lea     rdi, err_bad_number_ptr
     mov     rdi, [rdi]
     xor     eax, eax
-    call    printf
+    CRT_CALL printf
     mov     rax, -1
     jmp     tok_end
 
@@ -276,7 +277,7 @@ tok_error_max_tokens:
     lea     rdi, err_max_tokens_ptr
     mov     rdi, [rdi]
     xor     rax, rax
-    call    printf
+    CRT_CALL printf
     mov     rax, -1
 
 tok_end:

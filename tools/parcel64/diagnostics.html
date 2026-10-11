@@ -1,0 +1,79 @@
+<!doctype html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Диагностика лимита · Arena</title>
+<style>
+*{box-sizing:border-box}body{font:15px/1.6 system-ui,sans-serif;background:#f4f6f2;color:#172824;margin:0}.wrap{max-width:800px;margin:auto;padding:40px 24px}a{color:#23674e}h1{font-size:32px;letter-spacing:-1px;line-height:1.2}p{color:#63736a}section{background:white;padding:24px;border:1px solid #dde4de;border-radius:16px;margin:24px 0}.controls{display:flex;gap:10px;flex-wrap:wrap}input,button{font:inherit;padding:9px 14px;border:1px solid #bdcfc2;border-radius:8px}input{width:170px}button{cursor:pointer;background:#23674e;color:white}button:disabled{opacity:.4;cursor:default}button.stop{background:white;color:#172824}#result{font-size:17px;font-weight:600;white-space:pre-line}#status{color:#63736a;font-size:13px;min-height:22px}.error{color:#a33e35}table{width:100%;border-collapse:collapse;font-size:13px;text-align:left}th,td{padding:10px 4px;border-bottom:1px solid #e4eae4}small{display:block;color:#63736a;margin:12px 0}.progress{height:4px;background:#e7ede6;margin-top:16px;border-radius:5px;overflow:hidden}#bar{background:#23674e;height:4px;width:0}#saved{color:#63736a;font-size:12px}
+</style></head><body><main class="wrap"><a href="/">← К загрузчику</a><h1>Где проходит граница запроса?</h1><p>Тест идёт из вашего браузера через тот же адрес превью. Сначала увеличиваем размер, затем сужаем интервал между успешной передачей и ответом HTTP 413.</p>
+<section><strong>Перед запуском</strong><p>Тестовые данные генерируются браузером и не сохраняются на сервере. Отправка последовательная, до 500 МиБ в одном запросе. В худшем случае тест может израсходовать <b>до 3 ГиБ исходящего трафика</b>. Обычно потребуется меньше. Не запускайте на лимитном соединении.</p><p>Остановка — в любой момент. Сначала получим интервал до 1 МиБ; если бюджета хватит, уточним до байта. Это измерение текущего HTTP-пути, а не гарантия постоянного лимита всей платформы.</p><div class="controls"><input id="code" type="password" placeholder="Код из чата" aria-label="Код доступа" autocomplete="off"><button id="start">Начать измерение</button><button id="stop" class="stop" disabled>Остановить</button></div><div class="progress"><div id="bar"></div></div><div id="status" role="status" aria-live="polite"></div></section>
+<section><div id="result">Измерение ещё не запускалось</div><small id="budget">Бюджет: не более 3 ГиБ суммарных тел запросов, до 48 проверок.</small><div id="saved"></div><table><thead><tr><th>Размер запроса</th><th>Ответ</th><th>Время</th></tr></thead><tbody id="rows"></tbody></table></section>
+</main><script>
+const $=id=>document.getElementById(id),MiB=1024*1024,BUDGET=3*1024*MiB,MAX=500*MiB;
+let active=null,stop=false,running=false,code='',report=null;
+try{$('code').value=sessionStorage.getItem('upload-code')||''}catch{}
+function size(n){return `${n.toLocaleString('ru-RU')} байт (${(n/MiB).toFixed(3)} МиБ)`}
+async function save(){
+ try{const r=await fetch('/api/probe-report',{method:'POST',headers:{'X-Upload-Code':code,'Content-Type':'application/json'},body:JSON.stringify(report),signal:AbortSignal.timeout(15000)});if(!r.ok)throw Error(`HTTP ${r.status}`);$('saved').textContent='Отчёт сохранён в песочнице. Ассистент сможет его прочитать.';}
+ catch(e){$('saved').textContent='Отчёт не сохранён: '+e.message+'. Результаты остаются на этой странице.';}
+}
+function render(){
+ if(report.accepted!==null&&report.rejected!==null){
+  const gap=report.rejected-report.accepted;
+  $('result').textContent=`Принято: ${size(report.accepted)}\nHTTP 413: ${size(report.rejected)}\n${gap===1?'Граница определена до байта для этого теста.':`Неопределённый интервал: ${size(gap)}.`}`;
+ }else if(report.accepted!==null){$('result').textContent=`Подтверждено: ${size(report.accepted)} проходит.\nВерхняя граница пока не установлена.`;}
+ else if(report.rejected!==null){$('result').textContent=`Даже ${size(report.rejected)} получило HTTP 413. Положительная граница не установлена.`;}
+ $('budget').textContent=`Запланированные тела запросов: ${(report.scheduled/MiB).toFixed(1)} / 3072 МиБ. Проверок: ${report.tests.length}. Фактический трафик может быть меньше при раннем отказе.`;
+}
+// A Blob composed of shared 1 MiB pieces avoids a huge contiguous JS allocation.
+const seed=new Uint8Array(MiB);for(let p=0;p<seed.length;p+=65536)crypto.getRandomValues(seed.subarray(p,p+65536));
+const unit=new Blob([seed],{type:'application/octet-stream'});
+function payload(n){const parts=Array(Math.floor(n/MiB)).fill(unit);if(n%MiB)parts.push(unit.slice(0,n%MiB));return new Blob(parts,{type:'application/octet-stream'})}
+function transmit(n){return new Promise((resolve,reject)=>{
+ const x=new XMLHttpRequest();active=x;x.open('PUT','/api/probe');x.timeout=180000;
+ x.setRequestHeader('X-Upload-Code',code);x.setRequestHeader('Content-Type','application/octet-stream');
+ x.upload.onprogress=e=>{$('bar').style.width=`${Math.min(100,e.loaded/n*100)}%`;};
+ x.onload=()=>{if(x.status===200){try{if(JSON.parse(x.responseText).received!==n)throw Error();}catch{return reject(Error('Некорректное подтверждение сервера'))}}resolve(x.status)};
+ x.onerror=()=>reject(Error('Сетевая ошибка — размерный предел не установлен'));
+ x.ontimeout=()=>reject(Error('Таймаут — это не подтверждение лимита размера'));
+ x.onabort=()=>reject(Error('Остановлено пользователем'));x.send(payload(n));
+});}
+async function test(n){
+ if(stop)throw Error('Остановлено пользователем');
+ if(report.tests.length>=48||report.scheduled+n>BUDGET)throw Error('Достигнут бюджет теста. Сохранён лучший измеренный интервал.');
+ report.scheduled+=n;render();$('status').textContent='Проверяем '+size(n);$('bar').style.width='0%';
+ const t=performance.now();let status;
+ try{status=await transmit(n)}catch(e){status=e.message}
+ active=null;const seconds=((performance.now()-t)/1000).toFixed(1);
+ report.tests.push({bytes:n,status,seconds:Number(seconds)});
+ const row=document.createElement('tr');for(const text of [size(n),typeof status==='number'?`HTTP ${status}`:status,`${seconds} с`]){const cell=document.createElement('td');cell.textContent=text;row.append(cell)}$('rows').append(row);
+ if(status===200)report.accepted=Math.max(report.accepted??0,n);
+ else if(status===413)report.rejected=Math.min(report.rejected??Infinity,n);
+ render();await save();
+ if(status!==200&&status!==413)throw Error(typeof status==='string'?status:`HTTP ${status} — тест остановлен, это не доказательство ограничения размера`);
+ if(stop)throw Error('Остановлено пользователем');
+ return status;
+}
+$('stop').onclick=()=>{stop=true;active?.abort();$('status').textContent='Останавливаем…';};
+$('start').onclick=async()=>{
+ if(running)return;running=true;stop=false;code=$('code').value.trim();$('rows').replaceChildren();$('result').textContent='Проверяем доступ…';
+ $('start').disabled=true;$('stop').disabled=false;$('code').disabled=true;
+ report={version:1,started:new Date().toISOString(),mode:'one-request',accepted:null,rejected:null,scheduled:0,tests:[],outcome:'running'};
+ try{
+  const response=await fetch('/api/config',{headers:{'X-Upload-Code':code},signal:AbortSignal.timeout(15000)});if(!response.ok)throw Error('Нет доступа: проверьте код.');
+  if(stop)throw Error('Остановлено пользователем');
+  for(let n=MiB;;n=Math.min(n*2,MAX)){
+   if(await test(n)===413)break;
+   if(n===MAX){report.outcome='Всё до 500 МиБ включительно прошло. Более крупные запросы не проверялись.';return;}
+  }
+  if(report.accepted===null)throw Error('Нет успешного контрольного запроса. Надёжный интервал определить нельзя.');
+  while(report.rejected-report.accepted>1){
+   let n=Math.floor((report.accepted+report.rejected)/2);
+   if(report.rejected-report.accepted>MiB)n=Math.max(report.accepted+1,Math.floor(n/MiB)*MiB);
+   await test(n);
+  }
+  report.outcome='Граница между HTTP 200 и HTTP 413 найдена до байта.';
+ }catch(e){report.outcome=e.message;}
+ finally{
+  report.finished=new Date().toISOString();await save();render();$('status').textContent=report.outcome;
+  $('start').disabled=false;$('stop').disabled=true;$('code').disabled=false;running=false;
+ }
+};
+window.addEventListener('beforeunload',e=>{if(running){e.preventDefault();e.returnValue=''}});
+</script></body></html>

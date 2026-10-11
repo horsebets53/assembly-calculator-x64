@@ -1,0 +1,134 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Parcel64 · Передать файл</title>
+<style>
+:root{color-scheme:light;--ink:#172824;--muted:#738078;--green:#23674e;--border:#dde4de}*{box-sizing:border-box}body{margin:0;background:#f4f6f2;color:var(--ink);font:15px/1.5 system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}button,input{font:inherit}button{cursor:pointer}button:disabled{opacity:.45;cursor:not-allowed}.page{max-width:920px;margin:auto;padding:36px 28px 48px}header{display:flex;justify-content:space-between;align-items:center;margin-bottom:62px}.brand{display:flex;gap:10px;align-items:center;font-size:16px;font-weight:700;letter-spacing:-.5px}.logo{background:var(--ink);color:white;width:30px;height:30px;display:grid;place-items:center;border-radius:9px}.badge{border:1px solid var(--border);border-radius:30px;padding:5px 12px;font-size:12px;background:#fff}.dot{display:inline-block;width:7px;height:7px;background:#93a497;border-radius:100%;margin-right:6px}.dot.online{background:#43a170}.eyebrow{font-size:11px;letter-spacing:2px;color:var(--green);font-weight:700;margin:0 0 12px}h1{font-size:42px;font-weight:600;letter-spacing:-1.8px;line-height:1.14;margin:0 0 16px}.intro{color:var(--muted);max-width:640px;margin:0 0 30px;font-size:16px}.panel{border:1px solid var(--border);background:white;border-radius:18px;padding:24px;box-shadow:0 3px 12px #17282403}.access{display:flex;align-items:center;gap:14px;margin-bottom:22px}.access label{font-size:13px;font-weight:600;flex-shrink:0}.access input{background:#f7f9f6;border:1px solid var(--border);border-radius:8px;padding:9px 12px;min-width:0;width:160px;font-family:monospace;letter-spacing:1px}.access .hint{margin-left:auto;font-size:12px;color:var(--muted)}.drop{border:1.5px dashed #b8c9bb;border-radius:12px;background:#f7faf5;text-align:center;padding:34px 16px;transition:.2s}.drop.drag{border-color:var(--green);background:#e9f3e6}.upload-icon{width:50px;height:50px;margin:0 auto 14px;display:grid;place-items:center;background:#e9f0e5;border-radius:14px;color:var(--green)}.drop h2{font-size:18px;font-weight:550;margin:0 0 5px}.drop p{font-size:13px;color:var(--muted);margin:0 0 17px}.primary{background:var(--green);color:#fff;border:1px solid var(--green);border-radius:8px;padding:10px 20px;font-weight:550}.secondary{background:#fff;border:1px solid var(--border);border-radius:8px;padding:8px 14px;color:var(--ink)}.small{font-size:12px}.limits{display:flex;justify-content:center;gap:24px;font-size:12px;color:var(--muted);margin:16px 0 2px}.queue-head{display:flex;align-items:center;justify-content:space-between;margin:29px 0 12px}.queue-head h2{font-size:14px;margin:0;font-weight:600}.queue-head span{color:var(--muted);font-weight:400}.file{background:white;border:1px solid var(--border);border-radius:12px;padding:17px 18px;margin-bottom:9px}.file-top{display:flex;align-items:center;gap:12px}.file-icon{color:var(--green);background:#eff3eb;padding:10px;border-radius:8px;display:grid;place-items:center}.file-text{min-width:0;flex:1}.name{display:block;font-weight:550;font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.status{font-size:12px;color:var(--muted)}.cancel{background:transparent;border:0;color:var(--muted);font-size:20px;padding:3px 8px}.track{background:#edf1eb;height:4px;border-radius:10px;margin-top:14px;overflow:hidden}.bar{width:0;height:100%;background:var(--green);transition:width .15s}.digest{font:11px/1.6 monospace;color:#5c7164;word-break:break-all;margin-top:10px}.digest button{font:11px system-ui;margin-top:6px}.empty{color:var(--muted);font-size:13px;text-align:center;border:1px solid var(--border);border-radius:12px;padding:24px}.error{color:#a33e35}.notice{font-size:13px;min-height:20px;margin-top:12px}.footer{display:flex;gap:12px;margin-top:28px;padding-top:20px;border-top:1px solid var(--border);color:var(--muted);font-size:12px}.footer svg{flex-shrink:0}.footer strong{font-weight:500;color:#46594c}.footer p{margin:0}.actions{display:flex;justify-content:flex-end;margin-top:15px}button:focus-visible,input:focus-visible,.drop:focus-visible{outline:3px solid #a1c2af;outline-offset:3px}@media(max-width:600px){.page{padding:22px 16px}header{margin-bottom:40px}h1{font-size:34px}.panel{padding:16px}.access{flex-wrap:wrap;gap:8px}.access .hint{flex-basis:100%;margin:0}.access label{flex-basis:100%}.limits{gap:12px;font-size:11px}.drop h2{font-size:16px}.drop{padding:25px 12px}.intro{font-size:14px}}
+</style>
+</head>
+<body><main class="page">
+<header><div class="brand"><span class="logo">↥</span> Parcel64 / transfer</div><span class="badge"><i class="dot" id="dot"></i><span id="connection">Проверка доступа</span></span></header>
+<p class="eyebrow">ПЕРЕДАЧА В ПЕСОЧНИЦУ</p><h1>Файлы — прямо сюда.</h1><p class="intro">Загрузите архив, пакет или документ с вашего компьютера. Без промежуточных репозиториев и внешних ссылок.</p>
+<section class="panel" aria-label="Загрузка файлов">
+<div class="access"><label for="code">Код из чата</label><input id="code" type="password" autocomplete="off" placeholder="Код доступа" maxlength="64"><button class="secondary small" id="connect">Подключить</button><span class="hint">Доступ только по коду</span></div>
+<div class="drop" id="drop"><div class="upload-icon"><svg width="27" height="27" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 16V3m-5 5 5-5 5 5M4 15v5a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-5"/></svg></div><h2>Перетащите файлы в эту область</h2><p>или выберите их на компьютере</p><button class="primary" id="choose">Выбрать файлы</button><input id="picker" type="file" multiple hidden></div>
+<div class="limits"><span>До 500 МиБ на файл</span><span>Любой формат</span><span>Части по 64 МиБ</span></div>
+<div class="notice" id="notice" role="status" aria-live="polite"></div>
+</section>
+<p class="small"><a href="/diagnostics" style="color:var(--green)">Проверить лимит прокси →</a></p>
+<div class="queue-head"><h2>Файлы <span id="count">/ 0</span></h2><span class="small" id="summary">Ожидаем первый файл</span></div>
+<div id="files"><div class="empty" id="empty">Выбранные файлы появятся здесь</div></div>
+<div class="actions"><button class="primary" id="send" disabled>Загрузить файлы</button></div>
+<footer class="footer"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="m12 3 8 3v6c0 5-8 9-8 9s-8-4-8-9V6z"/><path d="m8 12 3 3 5-6"/></svg><p><strong>Сохраняем, но не запускаем.</strong> После загрузки покажем SHA-256 полученного файла.<br>Это временное хранилище сессии, не резервная копия. Файл передаётся частями до 64 МиБ и сохраняется целиком. При сбое повторяется только неподтверждённая часть. Не закрывайте вкладку до завершения.</p></footer>
+</main>
+<script>
+const $=id=>document.getElementById(id), items=[];
+let code='', config=null, busy=false;
+try{code=sessionStorage.getItem('upload-code')||''}catch{}
+$('code').value=code;
+const bytes=n=>n<1024?`${n} Б`:n<1048576?`${(n/1024).toFixed(1)} КиБ`:`${(n/1048576).toFixed(1)} МиБ`;
+const note=(text,error=false)=>{ $('notice').textContent=text;$('notice').classList.toggle('error',error); };
+async function api(path,method='GET',data){
+ const response=await fetch(path,{method,headers:{'X-Upload-Code':code,...(data!==undefined?{'Content-Type':'application/json'}:{})},body:data===undefined?undefined:JSON.stringify(data),signal:AbortSignal.timeout(30000)});
+ let result;try{result=await response.json()}catch{throw new Error(`Прокси вернул HTTP ${response.status}. Попробуйте ещё раз.`)}
+ if(!response.ok)throw Object.assign(new Error(result.error||`HTTP ${response.status}`),{httpStatus:response.status});return result;
+}
+function update(){
+ $('count').textContent=`/ ${items.length}`;
+ const complete=items.filter(i=>i.state==='done').length;
+ $('summary').textContent=items.length?`Получено ${complete} из ${items.length}`:'Ожидаем первый файл';
+ $('send').disabled=busy||!config||!items.some(i=>i.state==='queued');
+ $('send').textContent=busy?'Передаём…':'Загрузить файлы';
+ $('connect').disabled=busy;
+ $('code').disabled=busy;
+}
+async function connect(){
+ code=$('code').value.trim();config=null;update();
+ try{config=await api('/api/config');try{sessionStorage.setItem('upload-code',code)}catch{}$('connection').textContent='Готов к загрузке';$('dot').classList.add('online');note('Соединение установлено. Можно выбирать файлы.');}
+ catch(e){$('connection').textContent='Нет доступа';$('dot').classList.remove('online');note(e.message,true);}
+ update();
+}
+$('connect').onclick=connect;$('code').onkeydown=e=>{if(e.key==='Enter')connect()};
+if(code)connect();else note('Введите код доступа из сообщения в чате.');
+$('choose').onclick=()=>$('picker').click();
+$('picker').onchange=e=>{addFiles(e.target.files);e.target.value=''};
+for(const event of ['dragenter','dragover'])$('drop').addEventListener(event,e=>{e.preventDefault();$('drop').classList.add('drag')});
+$('drop').ondragleave=()=>$('drop').classList.remove('drag');
+$('drop').ondrop=e=>{e.preventDefault();$('drop').classList.remove('drag');addFiles(e.dataTransfer.files)};
+window.addEventListener('dragover',e=>e.preventDefault());window.addEventListener('drop',e=>e.preventDefault());
+function addFiles(files){
+ for(const file of files){
+  if(file.size>500*1024*1024){note(`«${file.name}» больше 500 МиБ. Разделите его на части.`,true);continue;}
+  $('empty')?.remove();
+  const node=document.createElement('article');node.className='file';
+  node.innerHTML='<div class="file-top"><div class="file-icon">↥</div><div class="file-text"><span class="name"></span><span class="status"></span></div><button class="cancel" aria-label="Отменить загрузку" title="Отменить">×</button></div><div class="track"><div class="bar"></div></div><div class="digest" hidden></div>';
+  node.querySelector('.name').textContent=file.name;node.querySelector('.name').title=file.name;
+  const item={file,node,state:'queued',cancelled:false,id:null,xhr:null};items.push(item);
+  status(item,`${bytes(file.size)} · В очереди`);node.querySelector('.cancel').onclick=()=>cancel(item);
+  $('files').append(node);
+ }
+ update();
+}
+function status(i,s,error=false){const el=i.node.querySelector('.status');el.textContent=s;el.classList.toggle('error',error);}
+async function cancel(i){
+ if(i.state==='done')return;
+ i.cancelled=true;i.xhr?.abort();i.state='cancelled';status(i,'Отменено');i.node.querySelector('.cancel').hidden=true;
+ if(i.id)try{await api(`/api/uploads/${i.id}`,'DELETE')}catch(e){note(`Не удалось удалить незавершённый файл: ${e.message}`,true)}
+ update();
+}
+function put(i,offset,blob){return new Promise((resolve,reject)=>{
+ const xhr=new XMLHttpRequest();i.xhr=xhr;xhr.open('PUT',`/api/uploads/${i.id}`);xhr.timeout=0;
+ xhr.setRequestHeader('X-Upload-Code',code);xhr.setRequestHeader('X-Offset',String(offset));xhr.setRequestHeader('Content-Type','application/octet-stream');
+ xhr.upload.onprogress=e=>{const n=Math.min(i.file.size,offset+e.loaded);i.node.querySelector('.bar').style.width=`${i.file.size?n/i.file.size*100:100}%`;status(i,`${bytes(n)} / ${bytes(i.file.size)} · ${i.file.size?Math.floor(n/i.file.size*100):100}%`)};
+ xhr.onload=()=>{let result;try{result=JSON.parse(xhr.responseText)}catch{return reject(Object.assign(new Error(`Ответ прокси: HTTP ${xhr.status}`),{httpStatus:xhr.status}))}xhr.status===200?resolve(result):reject(Object.assign(new Error(result.error||`HTTP ${xhr.status}`),{httpStatus:xhr.status}));};
+ xhr.onerror=()=>reject(new Error('Соединение прервано'));xhr.ontimeout=()=>reject(new Error('Время ожидания истекло'));xhr.onabort=()=>reject(new Error('Отменено'));xhr.send(blob);
+});}
+async function upload(i){
+ i.state='uploading';status(i,'Начинаем передачу…');
+ try{
+  let session;
+  if(i.id){
+   try{session=await api(`/api/uploads/${i.id}`)}
+   catch(e){if(e.httpStatus!==404)throw e;i.id=null;}
+  }
+  if(!session){session=await api('/api/uploads','POST',{name:i.file.name,size:i.file.size});i.id=session.id;}
+  if(i.cancelled){await api(`/api/uploads/${i.id}`,'DELETE');return;}
+  let offset=session.offset,attempts=0;
+  while(offset<i.file.size){
+   if(i.cancelled)return;
+   try{
+    const result=await put(i,offset,i.file.slice(offset,offset+config.chunk));
+    if(!Number.isSafeInteger(result.offset)||result.offset<=offset||result.offset>i.file.size)throw new Error('Некорректное подтверждение размера');
+    offset=result.offset;attempts=0;
+   }catch(e){
+    if(i.cancelled)return;
+    if(e.httpStatus&&e.httpStatus<500&&![408,409,429].includes(e.httpStatus))throw e;
+    if(++attempts>3)throw e;
+    status(i,`Повторное соединение · попытка ${attempts}/3`);
+    await new Promise(r=>setTimeout(r,attempts*1000));if(i.cancelled)return;
+    // An acknowledgement may have been lost after the server saved a chunk.
+    session=await api(`/api/uploads/${i.id}`);offset=session.offset;
+   }
+  }
+  if(i.cancelled)return;
+  status(i,'Подтверждаем сохранение…');i.node.querySelector('.cancel').hidden=true;
+  const result=await api(`/api/uploads/${i.id}/complete`,'POST',{});
+  i.state='done';i.node.querySelector('.bar').style.width='100%';i.node.querySelector('.file-icon').textContent='✓';status(i,`${bytes(i.file.size)} · Сохранён в песочнице`);
+  const digest=i.node.querySelector('.digest');digest.hidden=false;digest.textContent=`SHA-256: ${result.sha256}`;
+  const button=document.createElement('button');button.className='secondary';button.textContent='Скопировать SHA-256';button.onclick=async()=>{try{await navigator.clipboard.writeText(result.sha256);button.textContent='Скопировано'}catch{note('Не удалось скопировать. Выделите контрольную сумму вручную.',true)}};
+  digest.append(document.createElement('br'),button);
+ }catch(e){
+  if(i.cancelled)return;i.state='error';status(i,e.message,true);
+  const button=i.node.querySelector('.cancel');button.hidden=false;button.textContent='↻';button.title='Повторить';button.setAttribute('aria-label','Повторить загрузку');
+  button.onclick=()=>{i.state='queued';i.cancelled=false;button.textContent='×';button.title='Отменить';button.setAttribute('aria-label','Отменить загрузку');button.onclick=()=>cancel(i);status(i,'В очереди · продолжим с подтверждённой позиции');update()};
+ }
+}
+$('send').onclick=async()=>{
+ busy=true;update();note('Передаём частями по 64 МиБ. Не закрывайте вкладку.');
+ try{for(const i of items)if(i.state==='queued'&&!i.cancelled){await upload(i);update()}}
+ finally{busy=false;update();note(items.some(i=>i.state==='error')?'Есть ошибки. Нажмите ↻ у файла, затем повторите загрузку.':'Передача завершена. Полученные файлы доступны в песочнице.',items.some(i=>i.state==='error'));}
+};
+window.addEventListener('beforeunload',e=>{if(busy){e.preventDefault();e.returnValue=''}});
+</script>
+</body></html>

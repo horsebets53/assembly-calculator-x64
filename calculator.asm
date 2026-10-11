@@ -6,6 +6,7 @@
 option casemap:none
 
 INCLUDE common.inc
+INCLUDE runtime.inc
 
 ; --- Imports from C library ---
 EXTERN printf:PROC
@@ -315,10 +316,8 @@ rparen_found:
 handle_operator:
     ; Get current operator precedence
     mov     rax, [rbx].Token.tok_type
-    push    rbx                         ; Save token pointer
     call    get_precedence
     mov     r10, rax                    ; r10 = current precedence
-    pop     rbx                         ; Restore token pointer
 
 operator_loop:
     call    op_stack_peek
@@ -329,12 +328,9 @@ operator_loop:
     je      operator_push               ; Don't pop left paren
     
     ; Get stack top precedence
-    push    rbx
-    push    r10
+    ; get_precedence only clobbers RAX; no saves or alignment changes needed.
     call    get_precedence
     mov     r11, rax                    ; r11 = stack precedence
-    pop     r10
-    pop     rbx
     
     ; Compare precedences
     mov     rax, [rbx].Token.tok_type
@@ -452,16 +448,16 @@ read_line PROC
 rl_prompt:
     lea     rdi, prompt
     xor     eax, eax
-    call    printf
+    CRT_CALL printf
 
     mov     rdi, [stdout]
-    call    fflush
+    CRT_CALL fflush
 
 rl_read:
     lea     rdi, input_buffer
     mov     rsi, INPUT_BUFFER_SIZE
     mov     rdx, [stdin]
-    call    fgets
+    CRT_CALL fgets
 
     test    rax, rax
     jz      rl_eof                      ; end of file
@@ -474,12 +470,12 @@ rl_read:
     ; tail would be silently evaluated as a second, unrelated expression.
     lea     rdi, err_line_too_long
     xor     eax, eax
-    call    printf
+    CRT_CALL printf
 rl_drain:
     lea     rdi, input_buffer
     mov     rsi, INPUT_BUFFER_SIZE
     mov     rdx, [stdin]
-    call    fgets
+    CRT_CALL fgets
     test    rax, rax
     jz      rl_eof
     call    line_is_complete
@@ -498,7 +494,11 @@ rl_eof:
     ret
 read_line ENDP
 
+IFDEF __WINDOWS__
+calculator_main PROC PUBLIC
+ELSE
 main PROC PUBLIC
+ENDIF
     push    rbp
     mov     rbp, rsp
     push    rbx                         ; RBX/R12 are callee-saved: the C run
@@ -545,19 +545,19 @@ main_loop:
     ; Print result
     lea     rdi, result_str
     mov     eax, 1                      ; printf needs AL=1 for 1 float arg
-    call    printf
+    CRT_CALL printf
     jmp     main_loop
 
 syntax_error:
     lea     rdi, syntax_error_str
     xor     eax, eax
-    call    printf
+    CRT_CALL printf
     jmp     main_loop
 
 eval_error:
     lea     rdi, eval_error_str
     xor     eax, eax
-    call    printf
+    CRT_CALL printf
     jmp     main_loop
 
 exit_program:
@@ -567,6 +567,10 @@ exit_program:
     pop     rbx
     pop     rbp
     ret
+IFDEF __WINDOWS__
+calculator_main ENDP
+ELSE
 main ENDP
+ENDIF
 
 END
