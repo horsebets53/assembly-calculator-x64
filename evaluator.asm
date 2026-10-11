@@ -14,17 +14,19 @@ EXTERN TOKEN_MINUS:ABS
 EXTERN TOKEN_MUL:ABS
 EXTERN TOKEN_DIV:ABS
 EXTERN TOKEN_UNARY_MINUS:ABS
-EXTERN MAX_TOKENS:ABS
 
 ; --- Exports for other modules ---
 PUBLIC evaluate_rpn
 PUBLIC rpn_queue
 
 ; --- Constants ---
+; The parser emits at most one output token per input token, so RPN_QUEUE_SIZE
+; must never be smaller than MAX_TOKENS in the lexer.
+RPN_QUEUE_SIZE      EQU 64
 MAX_STACK_SIZE      EQU 64
 
 .DATA?
-    rpn_queue           Token 64 DUP(<>)
+    rpn_queue           Token RPN_QUEUE_SIZE DUP(<>)
     operand_stack       REAL8 MAX_STACK_SIZE DUP(?)
     operand_stack_pointer QWORD ?
 
@@ -131,8 +133,9 @@ eval_loop:
     cmp     rax, TOKEN_UNARY_MINUS
     je      eval_unary_minus
     
-    ; Unknown token, skip
-    jmp     eval_next
+    ; Anything else (a stray parenthesis, for instance) means the RPN stream
+    ; is malformed. Skipping it would silently produce a wrong result.
+    jmp     eval_error
 
 eval_number:
     ; Push number onto stack

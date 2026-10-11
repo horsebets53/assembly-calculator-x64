@@ -1,0 +1,6 @@
+# Build artifacts
+*.o
+*.obj
+*.lst
+*.map
+calculator

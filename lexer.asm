@@ -5,12 +5,12 @@
 
 option casemap:none
 
-INCLUDE common.inc      ; CORRECTED: No quotes around the filename
+INCLUDE common.inc
 
 ; --- Imports needed by this module ---
 EXTERN printf:PROC
 EXTERN strtod:PROC
-EXTERN error_str_ptr:QWORD, err_max_tokens_ptr:QWORD
+EXTERN error_str_ptr:QWORD, err_max_tokens_ptr:QWORD, err_bad_number_ptr:QWORD
 
 ; --- Exports for other modules ---
 PUBLIC tokenize, print_tokens, tokens_array
@@ -189,13 +189,18 @@ tok_not_a_digit:
 
 tok_parse_number:
     sub     rsp, 32
-    mov     [rsp], rax
+    mov     [rsp], rax                  ; token count
+    mov     [rsp+8], r12                ; first character of the number
 
     mov     rdi, r12
     lea     rsi, [rsp+16]
     call    strtod
 
-    mov     r12, [rsp+16]
+    mov     r12, [rsp+16]               ; endptr: first character after the number
+    mov     rdx, [rsp+8]
+    cmp     r12, rdx
+    je      tok_bad_number              ; strtod consumed nothing ('.', '1..2', ...)
+
     mov     rax, [rsp]
     add     rsp, 32
 
@@ -206,6 +211,21 @@ tok_parse_number:
     add     r13, SIZEOF Token
     mov     r14, 1
     jmp     tok_main_loop
+
+; strtod refused to consume anything, so the character that looked like the
+; start of a number is not one. Without this check the scanner would re-read
+; the very same character forever and only stop at the MAX_TOKENS limit,
+; reporting a misleading "expression is too long" error.
+tok_bad_number:
+    mov     rax, [rsp]
+    add     rsp, 32
+
+    lea     rdi, err_bad_number_ptr
+    mov     rdi, [rdi]
+    xor     eax, eax
+    call    printf
+    mov     rax, -1
+    jmp     tok_end
 
 tok_is_plus:
     mov     [r13].Token.tok_type, TOKEN_PLUS

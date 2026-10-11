@@ -13,6 +13,8 @@ A cross-platform console calculator written from scratch in x86-64 assembly usin
 - **Parentheses Support:** Allows overriding the order of operations using parentheses.
 - **Unary Minus:** Supports negative numbers and expressions like `5 * -2`.
 - **Floating-Point Numbers:** All calculations are performed with 64-bit double-precision numbers using SSE2 instructions.
+- **Division by Zero:** Returns `inf` in accordance with the IEEE 754 standard.
+- **Error Reporting:** Invalid characters, malformed numbers, unbalanced parentheses, missing operands and over-long expressions are all reported instead of producing a wrong result silently.
 - **Cross-Platform:** The code compiles on Linux and can be easily adapted for Windows due to its use of the standard C library (libc/MSVCRT).
 
 ## Architecture
@@ -45,6 +47,8 @@ The repository includes a `build.sh` script for convenience.
     ```
     This will automatically assemble all modules and link them into a single executable named `calculator`.
 
+    To remove the build artifacts run `./build.sh clean`.
+
 **Manual Build:**
 ```bash
 # 1. Assemble all modules
@@ -53,10 +57,21 @@ uasm -elf64 evaluator.asm
 uasm -elf64 calculator.asm
 
 # 2. Link the object files using GCC
-gcc -no-pie calculator.o lexer.o evaluator.o -o calculator -lm
+#    -z noexecstack keeps the stack non-executable (UASM emits no .note.GNU-stack)
+gcc -no-pie -z noexecstack calculator.o lexer.o evaluator.o -o calculator -lm
 ```
 
 **Running:**
 ```bash
 ./calculator
+```
+
+**Limits:** an expression may contain up to 64 tokens and an input line up to 254 characters.
+
+## Testing
+
+The regression suite drives the built binary and checks both the results and the error messages:
+
+```bash
+./tests/test_calculator.sh
 ```

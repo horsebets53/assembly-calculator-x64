@@ -16,7 +16,6 @@ EXTERN stdout:QWORD
 
 ; --- Imports from our lexer module ---
 EXTERN tokenize:PROC
-EXTERN print_tokens:PROC
 EXTERN tokens_array:BYTE            
 EXTERN TOKEN_NUMBER:ABS
 EXTERN TOKEN_PLUS:ABS
@@ -29,27 +28,34 @@ EXTERN TOKEN_RPAREN:ABS
 
 ; --- Imports from evaluator module ---
 EXTERN evaluate_rpn:PROC
-EXTERN rpn_queue:PROC
+EXTERN rpn_queue:QWORD
 
 ; --- Global error strings needed by the lexer ---
-PUBLIC error_str_ptr, err_max_tokens_ptr
+PUBLIC error_str_ptr, err_max_tokens_ptr, err_bad_number_ptr
+
+; --- Limits ---
+INPUT_BUFFER_SIZE   EQU 256
+OP_STACK_SIZE       EQU 64
 
 .DATA
     prompt          DB  '> ', 0
     format_lf       DB  10, 0
     error_str       DB  'Error: Invalid character ''%c'' found.', 10, 0
     err_max_tokens  DB  'Error: Expression is too long (max 64 tokens).', 10, 0
+    err_bad_number  DB  'Error: Invalid number.', 10, 0
     
     error_str_ptr       DQ error_str
     err_max_tokens_ptr  DQ err_max_tokens
+    err_bad_number_ptr  DQ err_bad_number
     
-    debug_rpn       DB  'RPN Output:', 10, 0
     result_str      DB  'Result: %f', 10, 0
-    eval_error_str  DB  'Error: Invalid expression (check for missing operands or division by zero)', 10, 0
+    eval_error_str  DB  'Error: Invalid expression (check for missing or extra operands).', 10, 0
+    syntax_error_str DB 'Error: Unbalanced parentheses.', 10, 0
+    err_line_too_long DB 'Error: Input line is too long (max 254 characters).', 10, 0
 
 .DATA?
-    input_buffer    BYTE 256 DUP(?)
-    op_stack        Token 64 DUP(<>)
+    input_buffer    BYTE INPUT_BUFFER_SIZE DUP(?)
+    op_stack        Token OP_STACK_SIZE DUP(<>)
     op_stack_top    QWORD ?
 
 .CODE
@@ -97,12 +103,16 @@ get_precedence ENDP
 ; ----------------------------------------------------------------------------
 ; op_stack_push - Push token onto operator stack
 ; Input: RBX = pointer to Token to push
+; Output: RAX = 1 on success, 0 if the stack is full
 ; Preserves: All registers except RAX
 ; ----------------------------------------------------------------------------
 op_stack_push PROC
     push    rdx
     
     mov     rax, [op_stack_top]
+    cmp     rax, OP_STACK_SIZE
+    jge     osp_push_full
+    
     imul    rax, SIZEOF Token
     lea     rdx, op_stack
     add     rdx, rax
@@ -117,6 +127,12 @@ op_stack_push PROC
     
     inc     qword ptr [op_stack_top]
     
+    mov     eax, 1
+    pop     rdx
+    ret
+
+osp_push_full:
+    xor     eax, eax
     pop     rdx
     ret
 op_stack_push ENDP
@@ -220,7 +236,7 @@ copy_token_to_output ENDP
 ; ----------------------------------------------------------------------------
 ; parse_to_rpn - Convert infix tokens to RPN using Shunting-yard algorithm
 ; Input: RDI = pointer to input tokens, RSI = token count
-; Output: RAX = count of tokens in rpn_queue
+; Output: RAX = count of tokens in rpn_queue, or -1 on a syntax error
 ; ----------------------------------------------------------------------------
 parse_to_rpn PROC
     push    rbp
@@ -230,6 +246,8 @@ parse_to_rpn PROC
     push    r13
     push    r14
     push    r15
+    sub     rsp, 8                      ; five saves leave RSP 8 mod 16; calls
+                                        ; need it 16-byte aligned (SysV ABI)
     
     ; Initialize
     mov     r12, rdi                    ; r12 = input tokens
@@ -272,6 +290,8 @@ handle_number:
 handle_lparen:
     ; Push left paren to stack
     call    op_stack_push
+    test    rax, rax
+    jz      parse_error                 ; Operator stack full
     jmp     parse_next
 
 handle_rparen:
@@ -279,7 +299,7 @@ handle_rparen:
 rparen_loop:
     call    op_stack_peek
     test    rax, rax
-    jz      parse_next                  ; Stack empty
+    jz      parse_error                 ; ')' without a matching '('
     
     cmp     rax, TOKEN_LPAREN
     je      rparen_found
@@ -337,6 +357,8 @@ pop_and_continue:
 
 operator_push:
     call    op_stack_push
+    test    rax, rax
+    jz      parse_error                 ; Operator stack full
 
 parse_next:
     inc     r14
@@ -349,64 +371,171 @@ flush_loop:
     test    rax, rax
     jz      parse_done
     
+    ; Anything left must be an operator; a '(' here means it was never closed
+    call    op_stack_peek
+    cmp     rax, TOKEN_LPAREN
+    je      parse_error
+    
     call    op_stack_pop
     jmp     flush_loop
 
 parse_done:
     mov     rax, r15                    ; Return output count
-    
+    jmp     parse_epilogue
+
+parse_error:
+    mov     rax, -1                     ; Syntax error
+
+parse_epilogue:
+    lea     rsp, [rbp-40]               ; drop the alignment pad, then restores
     pop     r15
     pop     r14
     pop     r13
     pop     r12
     pop     rbx
-    mov     rsp, rbp
     pop     rbp
     ret
 parse_to_rpn ENDP
 
-main PROC PUBLIC
-    push    rbp
-    mov     rbp, rsp
-    sub     rsp, 32
+; ----------------------------------------------------------------------------
+; line_is_complete - Check whether input_buffer holds a whole line
+; Output: RAX = 1 if the line is complete, 0 if fgets filled the buffer and
+;         stopped in the middle of the line.
+; A line without a trailing newline is complete when it ended at end of file,
+; which is the normal case for piped input such as: printf '2+2' | ./calculator
+; Clobbers: RAX, RCX, RDI
+; ----------------------------------------------------------------------------
+line_is_complete PROC
+    push    rdi
+    push    rcx
 
-main_loop:
+    ; strlen(input_buffer) - fgets always NUL-terminates what it reads
+    lea     rdi, input_buffer
+    mov     rcx, INPUT_BUFFER_SIZE
+    xor     eax, eax
+    cld
+    repne   scasb                       ; RDI = input_buffer + strlen + 1
+
+    lea     rax, input_buffer
+    sub     rdi, rax
+    dec     rdi                         ; RDI = strlen
+
+    cmp     rdi, INPUT_BUFFER_SIZE-1
+    jb      lic_done                    ; buffer not full: line ended at EOF
+
+    ; The buffer is full, so the line is complete only if it ends with '\n'
+    lea     rax, input_buffer
+    cmp     byte ptr [rax+rdi-1], 10
+    je      lic_done
+
+    xor     eax, eax                    ; truncated line
+    pop     rcx
+    pop     rdi
+    ret
+
+lic_done:
+    mov     eax, 1
+    pop     rcx
+    pop     rdi
+    ret
+line_is_complete ENDP
+
+; ----------------------------------------------------------------------------
+; read_line - Print the prompt and read one whole line into input_buffer
+; Output: RAX = 1 on success, 0 on end of file
+;         Over-long lines are reported and skipped, they never reach the parser.
+; ----------------------------------------------------------------------------
+read_line PROC
+    push    rbp
+    mov     rbp, rsp                    ; frame keeps RSP 16-byte aligned
+
+rl_prompt:
     lea     rdi, prompt
-    xor     rax, rax
+    xor     eax, eax
     call    printf
 
     mov     rdi, [stdout]
     call    fflush
 
+rl_read:
     lea     rdi, input_buffer
-    mov     rsi, 256
+    mov     rsi, INPUT_BUFFER_SIZE
     mov     rdx, [stdin]
     call    fgets
-    
+
     test    rax, rax
-    jz      exit_program
+    jz      rl_eof                      ; end of file
+
+    call    line_is_complete
+    test    rax, rax
+    jnz     rl_done                     ; whole line is in the buffer
+
+    ; The line did not fit: report it and drop the remainder, otherwise the
+    ; tail would be silently evaluated as a second, unrelated expression.
+    lea     rdi, err_line_too_long
+    xor     eax, eax
+    call    printf
+rl_drain:
+    lea     rdi, input_buffer
+    mov     rsi, INPUT_BUFFER_SIZE
+    mov     rdx, [stdin]
+    call    fgets
+    test    rax, rax
+    jz      rl_eof
+    call    line_is_complete
+    test    rax, rax
+    jz      rl_drain
+    jmp     rl_prompt                   ; discarded: ask for the next line
+
+rl_done:
+    mov     eax, 1
+    pop     rbp
+    ret
+
+rl_eof:
+    xor     eax, eax
+    pop     rbp
+    ret
+read_line ENDP
+
+main PROC PUBLIC
+    push    rbp
+    mov     rbp, rsp
+    push    rbx                         ; RBX/R12 are callee-saved: the C run
+    push    r12                         ; time expects them back unchanged
+    sub     rsp, 16                     ; keep RSP 16-byte aligned for calls
+
+main_loop:
+    call    read_line
+    test    rax, rax
+    jz      exit_program                ; end of file (or line discarded)
 
     lea     rdi, input_buffer
     lea     rsi, tokens_array
     call    tokenize
     
     cmp     rax, -1
-    je      main_loop
+    je      main_loop                   ; lexer already reported the error
     
     ; Save token count
     mov     rbx, rax
+    test    rbx, rbx
+    jz      main_loop                   ; empty line: nothing to evaluate
     
     ; Convert to RPN
     lea     rdi, tokens_array
     mov     rsi, rbx
     call    parse_to_rpn
     
+    cmp     rax, -1
+    je      syntax_error
+    
     ; Save RPN count
-    mov     rbx, rax
+    mov     r12, rax
     
     ; Evaluate RPN expression
     lea     rdi, rpn_queue
-    mov     rsi, rbx
+    mov     rsi, r12
     call    evaluate_rpn
     
     ; Check for errors
@@ -415,20 +544,27 @@ main_loop:
     
     ; Print result
     lea     rdi, result_str
-    mov     rax, 1                      ; printf needs RAX=1 for 1 float arg
+    mov     eax, 1                      ; printf needs AL=1 for 1 float arg
+    call    printf
+    jmp     main_loop
+
+syntax_error:
+    lea     rdi, syntax_error_str
+    xor     eax, eax
     call    printf
     jmp     main_loop
 
 eval_error:
     lea     rdi, eval_error_str
-    xor     rax, rax
+    xor     eax, eax
     call    printf
     jmp     main_loop
 
 exit_program:
     xor     eax, eax
-    add     rsp, 32
-    mov     rsp, rbp
+    lea     rsp, [rbp-16]
+    pop     r12
+    pop     rbx
     pop     rbp
     ret
 main ENDP
